@@ -16,6 +16,8 @@ import android.util.Log
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import com.samyak.repostore.data.prefs.DownloadPreferences
+import com.samyak.repostore.RepoStoreApp
+import com.samyak.repostore.data.model.InstalledAppMapping
 import kotlinx.coroutines.*
 import java.io.File
 
@@ -52,6 +54,8 @@ class AppInstaller private constructor(private val context: Context) {
     private val mainHandler = Handler(Looper.getMainLooper())
     
     private var currentDownloadId: Long = -1
+    private var currentRepoName: String? = null
+    private var currentOwnerName: String? = null
     private var downloadReceiver: BroadcastReceiver? = null
     private var progressRunnable: Runnable? = null
     private var isDownloading = false
@@ -79,6 +83,8 @@ class AppInstaller private constructor(private val context: Context) {
         url: String,
         fileName: String,
         title: String,
+        repoName: String? = null,
+        ownerName: String? = null,
         onStateChanged: (InstallState) -> Unit
     ) {
         // Prevent multiple downloads
@@ -90,7 +96,10 @@ class AppInstaller private constructor(private val context: Context) {
         }
 
         // Store callback
+        // Store callback and context
         stateCallback = onStateChanged
+        currentRepoName = repoName
+        currentOwnerName = ownerName
         isDownloading = true
 
         // Clean old file
@@ -136,6 +145,15 @@ class AppInstaller private constructor(private val context: Context) {
                             }
                             is MultiPartDownloader.DownloadState.Completed -> {
                                 onStateChanged(InstallState.Installing)
+                                
+                                // Extract and save package mapping if we have repo info
+                                if (currentRepoName != null && currentOwnerName != null) {
+                                    val apkFile = state.file
+                                    if (apkFile.exists()) {
+                                        extractAndSavePackageName(apkFile, currentRepoName!!, currentOwnerName!!)
+                                    }
+                                }
+                                
                                 val installStarted = installApk(state.file)
                                 if (installStarted) {
                                     onStateChanged(InstallState.Success)
@@ -260,6 +278,14 @@ class AppInstaller private constructor(private val context: Context) {
                         Log.d(TAG, "Download successful")
                         mainHandler.post {
                             onStateChanged(InstallState.Installing)
+                        }
+
+                        // Extract and save package mapping if we have repo info
+                        if (currentRepoName != null && currentOwnerName != null) {
+                            val apkFile = getDownloadFile(fileName)
+                            if (apkFile != null && apkFile.exists()) {
+                                extractAndSavePackageName(apkFile, currentRepoName!!, currentOwnerName!!)
+                            }
                         }
                         
                         // Get the downloaded file URI from DownloadManager
@@ -608,41 +634,186 @@ class AppInstaller private constructor(private val context: Context) {
     }
 
     /**
-     * Find installed package by repo/owner name
+     * Find installed package by repo/owner name.
+     * 
+     * Priority:
+     * 1. Database Mapping (100% accurate)
+     * 2. Token-Based Similarity Scan (Fuzzy Matcher)
      */
     fun findPackage(repoName: String, ownerName: String): String? {
-        val pm = context.packageManager
-        
-        // For Android 11+ (API 30+), we need QUERY_ALL_PACKAGES permission
-        // or use specific package queries
-        val apps = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            pm.getInstalledApplications(PackageManager.ApplicationInfoFlags.of(PackageManager.GET_META_DATA.toLong()))
-        } else {
-            @Suppress("DEPRECATION")
-            pm.getInstalledApplications(PackageManager.GET_META_DATA)
+        Log.d(TAG, "findPackage: Looking for repo='$repoName', owner='$ownerName'")
+
+        // 1. Check Database for known mapping (100% accurate)
+        try {
+            val dao = (context.applicationContext as RepoStoreApp).installedAppMappingDao
+            val mappedPackage = dao.getPackageNameSync(ownerName, repoName)
+            if (mappedPackage != null && isInstalled(mappedPackage)) {
+                Log.d(TAG, "findPackage: DB MATCH — Found mapped package '$mappedPackage'")
+                return mappedPackage
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "findPackage: Failed to check DB mapping", e)
         }
 
-        val repo = repoName.lowercase().replace(Regex("[^a-z0-9]"), "")
-        val owner = ownerName.lowercase().replace(Regex("[^a-z0-9]"), "")
+        // 2. Fallback: Token-Based Similarity Scan
+        // Scans all apps and scores them based on token overlap with owner/repo
+        return findBestMatchingPackage(repoName, ownerName)
+    }
 
-        // Search patterns
-        val patterns = listOf(
-            "com.$owner.$repo",
-            "com.$repo",
-            "org.$owner.$repo",
-            "io.$owner.$repo",
-            repo
-        )
+    /**
+     * Finds the best matching package using token similarity.
+     * Returns package name if a strong match is found, null otherwise.
+     */
+    private fun findBestMatchingPackage(repoName: String, ownerName: String): String? {
+        val pm = context.packageManager
+        val apps = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            pm.getInstalledApplications(PackageManager.ApplicationInfoFlags.of(0))
+        } else {
+            @Suppress("DEPRECATION")
+            pm.getInstalledApplications(0)
+        }
+
+        val requiredRepoTokens = tokenize(repoName)
+        val ownerTokens = tokenize(ownerName)
+        
+        // Combined query tokens for scoring
+        // We generally weigh repo tokens higher than owner tokens
+        
+        var bestMatch: String? = null
+        // Minimum score threshold to consider a match valid
+        // e.g. at least one significant token match
+        var bestScore = 0.0
 
         for (app in apps) {
-            val pkg = app.packageName.lowercase()
-            for (pattern in patterns) {
-                if (pattern.length >= 3 && pkg.contains(pattern)) {
-                    return app.packageName
-                }
+            val pkg = app.packageName
+            val score = calculateScore(pkg, requiredRepoTokens, ownerTokens)
+            
+            if (score > bestScore) {
+                bestScore = score
+                bestMatch = pkg
             }
         }
 
+        // Heuristic: Score must be reasonable
+        // e.g., if we matched "calculator" but nothing else, score might be low if owner mismatched
+        Log.d(TAG, "Best heuristic match for $ownerName/$repoName: $bestMatch (score=$bestScore)")
+        
+        // Threshold: adjust as needed. 
+        // If score > 0.5, it means significant overlap.
+        // For "FossifyOrg/Calculator" vs "org.fossify.calculator":
+        // Tokens: [fossify, org], [calculator]
+        // Pkg Tokens: [org, fossify, calculator]
+        // Match: fossify(1), org(1), calculator(1). Full match.
+        
+        if (bestScore > 0.65) { 
+            return bestMatch
+        }
         return null
+    }
+
+    /**
+     * Calculate match score between package name and query tokens.
+     */
+    private fun calculateScore(packageName: String, repoTokens: Set<String>, ownerTokens: Set<String>): Double {
+        // Tokenize package name (split by dots, underscores)
+        val pkgTokens = tokenize(packageName)
+        
+        // 1. Repo Name Match (Critical)
+        // At least one repo token MUST match significantly
+        val repoMatches = repoTokens.count { rToken -> 
+            pkgTokens.any { pToken -> isTokenMatch(rToken, pToken) }
+        }
+        
+        if (repoMatches == 0) return 0.0 // Repo name part missing? Likely irrelevant app.
+
+        // 2. Owner Name Match (Confirmation)
+        val ownerMatches = ownerTokens.count { oToken -> 
+            pkgTokens.any { pToken -> isTokenMatch(oToken, pToken) }
+        }
+
+        // 3. Calculation
+        // Repo match contributes 60%, Owner match contributes 40%
+        val repoScore = repoMatches.toDouble() / repoTokens.size.coerceAtLeast(1)
+        val ownerScore = ownerMatches.toDouble() / ownerTokens.size.coerceAtLeast(1)
+        
+        // If owner is missing completely, we penalize correctly
+        // But some owners don't put their name in package (e.g. "RetroMusicPlayer" -> "code.name.retro")
+        // So we can't require owner match 100%, but it boosts confidence.
+        
+        // However, to distinguish "Google Calculator" from "Fossify Calculator":
+        // "Calculator" matches both.
+        // "Fossify" matches "org.fossify" but NOT "com.google".
+        // So owner score is the discriminator.
+        
+        return (repoScore * 0.6) + (ownerScore * 0.4)
+    }
+
+    private fun isTokenMatch(token1: String, token2: String): Boolean {
+        // Exact match
+        if (token1 == token2) return true
+        // Substring check for concatenated tokens (e.g. "simplemobiletools" vs "simple")
+        if (token1.length > 3 && token2.contains(token1)) return true
+        if (token2.length > 3 && token1.contains(token2)) return true
+        return false
+    }
+
+    /**
+     * Split string into normalized alphanumeric tokens.
+     * e.g. "FossifyOrg" -> ["fossify", "org"]
+     *      "Simple-Gallery" -> ["simple", "gallery"]
+     */
+    internal fun tokenize(text: String): Set<String> {
+        val tokens = mutableSetOf<String>()
+        val lower = text.lowercase()
+        
+        // 1. Raw normalized string (e.g. "simplemobiletools")
+        val raw = lower.replace(Regex("[^a-z0-9]"), "")
+        if (raw.isNotEmpty()) tokens.add(raw)
+        
+        // 2. Split by delimiters
+        lower.split(Regex("[^a-z0-9]")).forEach { 
+            if (it.isNotEmpty()) tokens.add(it) 
+        }
+        
+        // 3. CamelCase split (e.g. "RetroMusic" -> "retro", "music")
+        text.replace(Regex("([a-z])([A-Z])"), "$1 $2")
+            .lowercase()
+            .split(" ")
+            .forEach {
+                val clean = it.replace(Regex("[^a-z0-9]"), "")
+                if (clean.isNotEmpty()) tokens.add(clean) 
+            }
+            
+        return tokens
+    }
+
+    private fun extractAndSavePackageName(apkFile: File, repoName: String, ownerName: String) {
+        val pm = context.packageManager
+        val archiveInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            pm.getPackageArchiveInfo(apkFile.absolutePath, PackageManager.PackageInfoFlags.of(0))
+        } else {
+            @Suppress("DEPRECATION")
+            pm.getPackageArchiveInfo(apkFile.absolutePath, 0)
+        }
+
+        archiveInfo?.packageName?.let { packageName ->
+            Log.d(TAG, "Extracted package name from APK: $packageName")
+            downloadScope.launch {
+                try {
+                    val dao = (context.applicationContext as RepoStoreApp).installedAppMappingDao
+                    val mapping = InstalledAppMapping(
+                        ownerName = ownerName,
+                        repoName = repoName,
+                        packageName = packageName
+                    )
+                    dao.saveMapping(mapping)
+                    Log.d(TAG, "Saved mapping: $ownerName/$repoName -> $packageName")
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to save package mapping", e)
+                }
+            }
+        } ?: run {
+            Log.e(TAG, "Could not extract package name from APK: ${apkFile.absolutePath}")
+        }
     }
 }

@@ -467,7 +467,9 @@ class DetailActivity : AppCompatActivity() {
         appInstaller.download(
             url = asset.downloadUrl,
             fileName = asset.name,
-            title = repoName
+            title = repoName,
+            repoName = repoName,
+            ownerName = owner
         ) { state ->
             // Ensure UI updates run on main thread
             runOnUiThread {
@@ -508,6 +510,9 @@ class DetailActivity : AppCompatActivity() {
         installedPackageName = appInstaller.findPackage(repoName, ownerName)
         val isInstalled = installedPackageName?.let { appInstaller.isInstalled(it) } ?: false
 
+        Log.d(TAG, "setupInstallButton: repo='$repoName', owner='$ownerName', " +
+                "detectedPkg='$installedPackageName', isInstalled=$isInstalled")
+
         if (isInstalled && installedPackageName != null) {
             // Check if update is available
             val installedVersion = appInstaller.getInstalledVersion(installedPackageName!!)
@@ -516,6 +521,9 @@ class DetailActivity : AppCompatActivity() {
             } else {
                 false
             }
+
+            Log.d(TAG, "setupInstallButton: installedVersion='$installedVersion', " +
+                    "releaseTag='$currentReleaseTag', hasUpdate=$hasUpdate")
             
             // Show uninstall button
             binding.btnUninstall.visibility = View.VISIBLE
