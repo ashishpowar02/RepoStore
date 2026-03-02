@@ -54,6 +54,10 @@ RepoStore is a native Android app that turns GitHub releases into a clean, Play 
   <img src="https://gitlab.com/IzzyOnDroid/repo/-/raw/master/assets/IzzyOnDroidButtonGreyBorder_nofont.png" height="60" alt="Get it at IzzyOnDroid"/>
 </a>
 
+<a href="https://www.openapk.net/repostore/com.samyak.repostore/">
+  <img src="https://img.shields.io/badge/Download_on-OpenAPK-success?style=for-the-badge&logo=android" height="60" alt="Get it on OpenAPK"/>
+</a>
+
 ---
 
 ## 🚀 Features
