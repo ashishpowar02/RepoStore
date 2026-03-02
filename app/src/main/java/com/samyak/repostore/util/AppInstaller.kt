@@ -95,7 +95,6 @@ class AppInstaller private constructor(private val context: Context) {
             return
         }
 
-        // Store callback
         // Store callback and context
         stateCallback = onStateChanged
         currentRepoName = repoName
@@ -259,7 +258,7 @@ class AppInstaller private constructor(private val context: Context) {
                 context,
                 downloadReceiver,
                 IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE),
-                ContextCompat.RECEIVER_NOT_EXPORTED
+                ContextCompat.RECEIVER_EXPORTED
             )
         }
     }
@@ -501,6 +500,8 @@ class AppInstaller private constructor(private val context: Context) {
         stopProgressTracking()
         unregisterReceiver()
         currentDownloadId = -1
+        currentRepoName = null
+        currentOwnerName = null
         isDownloading = false
         stateCallback = null
     }

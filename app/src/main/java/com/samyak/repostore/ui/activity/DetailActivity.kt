@@ -44,7 +44,9 @@ import io.noties.markwon.ext.tables.TablePlugin
 import io.noties.markwon.html.HtmlPlugin
 import io.noties.markwon.image.glide.GlideImagesPlugin
 import io.noties.markwon.linkify.LinkifyPlugin
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.Locale
@@ -219,14 +221,8 @@ class DetailActivity : AppCompatActivity() {
                 }
             }
         }
-        
-        // Observe favorite state
-        observeFavoriteState()
     }
-    
-    private fun observeFavoriteState() {
-        // We'll start observing after we have the repo ID
-    }
+
 
     private fun handleUiState(state: DetailUiState) {
         when (state) {
@@ -507,51 +503,57 @@ class DetailActivity : AppCompatActivity() {
     }
 
     private fun setupInstallButton(repoName: String, ownerName: String) {
-        installedPackageName = appInstaller.findPackage(repoName, ownerName)
-        val isInstalled = installedPackageName?.let { appInstaller.isInstalled(it) } ?: false
+        lifecycleScope.launch {
+            // Run heavy findPackage (DB query + PackageManager scan) off the main thread
+            val detectedPackage = withContext(Dispatchers.IO) {
+                appInstaller.findPackage(repoName, ownerName)
+            }
+            installedPackageName = detectedPackage
+            val isInstalled = installedPackageName?.let { appInstaller.isInstalled(it) } ?: false
 
-        Log.d(TAG, "setupInstallButton: repo='$repoName', owner='$ownerName', " +
-                "detectedPkg='$installedPackageName', isInstalled=$isInstalled")
+            Log.d(TAG, "setupInstallButton: repo='$repoName', owner='$ownerName', " +
+                    "detectedPkg='$installedPackageName', isInstalled=$isInstalled")
 
-        if (isInstalled && installedPackageName != null) {
-            // Check if update is available
-            val installedVersion = appInstaller.getInstalledVersion(installedPackageName!!)
-            val hasUpdate = if (installedVersion != null && currentReleaseTag != null) {
-                VersionComparator.isNewerVersion(installedVersion, currentReleaseTag!!)
+            if (isInstalled && installedPackageName != null) {
+                // Check if update is available
+                val installedVersion = appInstaller.getInstalledVersion(installedPackageName!!)
+                val hasUpdate = if (installedVersion != null && currentReleaseTag != null) {
+                    VersionComparator.isNewerVersion(installedVersion, currentReleaseTag!!)
+                } else {
+                    false
+                }
+
+                Log.d(TAG, "setupInstallButton: installedVersion='$installedVersion', " +
+                        "releaseTag='$currentReleaseTag', hasUpdate=$hasUpdate")
+                
+                // Show uninstall button
+                binding.btnUninstall.visibility = View.VISIBLE
+                binding.btnUninstall.setOnClickListener {
+                    appInstaller.uninstall(installedPackageName!!)
+                }
+                
+                if (hasUpdate) {
+                    // Update available - show Update button
+                    binding.btnDownload.text = getString(R.string.update)
+                    binding.btnDownload.setOnClickListener {
+                        currentApkAsset?.let { startDownload(it) }
+                    }
+                } else {
+                    // Already up to date - show Open button
+                    binding.btnDownload.text = getString(R.string.open)
+                    binding.btnDownload.setOnClickListener {
+                        if (!appInstaller.launch(installedPackageName!!)) {
+                            Toast.makeText(this@DetailActivity, R.string.cannot_open_app, Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
             } else {
-                false
-            }
-
-            Log.d(TAG, "setupInstallButton: installedVersion='$installedVersion', " +
-                    "releaseTag='$currentReleaseTag', hasUpdate=$hasUpdate")
-            
-            // Show uninstall button
-            binding.btnUninstall.visibility = View.VISIBLE
-            binding.btnUninstall.setOnClickListener {
-                appInstaller.uninstall(installedPackageName!!)
-            }
-            
-            if (hasUpdate) {
-                // Update available - show Update button
-                binding.btnDownload.text = getString(R.string.update)
+                // Not installed - show Install button
+                binding.btnUninstall.visibility = View.GONE
+                binding.btnDownload.text = getString(R.string.install)
                 binding.btnDownload.setOnClickListener {
                     currentApkAsset?.let { startDownload(it) }
                 }
-            } else {
-                // Already up to date - show Open button
-                binding.btnDownload.text = getString(R.string.open)
-                binding.btnDownload.setOnClickListener {
-                    if (!appInstaller.launch(installedPackageName!!)) {
-                        Toast.makeText(this, R.string.cannot_open_app, Toast.LENGTH_SHORT).show()
-                    }
-                }
-            }
-        } else {
-            // Not installed - show Install button
-            binding.btnUninstall.visibility = View.GONE
-            binding.btnDownload.text = getString(R.string.install)
-            binding.btnDownload.setOnClickListener {
-                currentApkAsset?.let { startDownload(it) }
             }
         }
     }
