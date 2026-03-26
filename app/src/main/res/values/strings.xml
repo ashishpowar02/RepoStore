@@ -226,4 +226,8 @@
     <string name="compatible">Compatible</string>
     <string name="incompatible">Incompatible</string>
     <string name="recommended">Recommended</string>
+    <string name="app_mismatch_title">App Mismatch?</string>
+    <string name="app_mismatch_message">RepoStore matched this repository to an installed app: %1$s (%2$s).\n\nIf this is NOT the same app, you can choose to install the APK from this repository anyway.</string>
+    <string name="install_anyway">Install Anyway</string>
+    <string name="forget_mapping">Forget Mapping</string>
 </resources>

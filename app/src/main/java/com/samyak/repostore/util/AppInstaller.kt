@@ -31,6 +31,13 @@ class AppInstaller private constructor(private val context: Context) {
         private const val TAG = "AppInstaller"
         private const val PROGRESS_INTERVAL = 300L
 
+        // Highly common keywords that shouldn't trigger a match on their own
+        private val GENERIC_TOKENS = setOf(
+            "maps", "music", "player", "gallery", "calculator", "browser", "camera", 
+            "video", "audio", "file", "manager", "pro", "free", "lite", "app", 
+            "android", "google", "mobile", "tool", "editor", "viewer"
+        )
+
         @Volatile
         private var instance: AppInstaller? = null
 
@@ -641,8 +648,8 @@ class AppInstaller private constructor(private val context: Context) {
      * 1. Database Mapping (100% accurate)
      * 2. Token-Based Similarity Scan (Fuzzy Matcher)
      */
-    fun findPackage(repoName: String, ownerName: String): String? {
-        Log.d(TAG, "findPackage: Looking for repo='$repoName', owner='$ownerName'")
+    fun findPackage(repoName: String, ownerName: String, expectedVersion: String? = null): String? {
+        Log.d(TAG, "findPackage: Looking for repo='$repoName', owner='$ownerName', expectedVersion='$expectedVersion'")
 
         // 1. Check Database for known mapping (100% accurate)
         try {
@@ -658,14 +665,29 @@ class AppInstaller private constructor(private val context: Context) {
 
         // 2. Fallback: Token-Based Similarity Scan
         // Scans all apps and scores them based on token overlap with owner/repo
-        return findBestMatchingPackage(repoName, ownerName)
+        return findBestMatchingPackage(repoName, ownerName, expectedVersion)
+    }
+
+    /**
+     * Clear mapping for a repo
+     */
+    fun clearMapping(repoName: String, ownerName: String) {
+        downloadScope.launch {
+            try {
+                val dao = (context.applicationContext as RepoStoreApp).installedAppMappingDao
+                dao.deleteMapping(ownerName, repoName)
+                Log.d(TAG, "Cleared mapping for: $ownerName/$repoName")
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to clear mapping", e)
+            }
+        }
     }
 
     /**
      * Finds the best matching package using token similarity.
      * Returns package name if a strong match is found, null otherwise.
      */
-    private fun findBestMatchingPackage(repoName: String, ownerName: String): String? {
+    private fun findBestMatchingPackage(repoName: String, ownerName: String, expectedVersion: String? = null): String? {
         val pm = context.packageManager
         val apps = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             pm.getInstalledApplications(PackageManager.ApplicationInfoFlags.of(0))
@@ -677,17 +699,24 @@ class AppInstaller private constructor(private val context: Context) {
         val requiredRepoTokens = tokenize(repoName)
         val ownerTokens = tokenize(ownerName)
         
-        // Combined query tokens for scoring
-        // We generally weigh repo tokens higher than owner tokens
-        
         var bestMatch: String? = null
-        // Minimum score threshold to consider a match valid
-        // e.g. at least one significant token match
         var bestScore = 0.0
 
         for (app in apps) {
             val pkg = app.packageName
-            val score = calculateScore(pkg, requiredRepoTokens, ownerTokens)
+            val label = try { pm.getApplicationLabel(app).toString() } catch (e: Exception) { "" }
+            val installedVersion = getInstalledVersion(pkg)
+            
+            val score = calculateScore(
+                packageName = pkg,
+                label = label,
+                repoTokens = requiredRepoTokens,
+                ownerTokens = ownerTokens,
+                rawRepoName = repoName,
+                rawOwnerName = ownerName,
+                expectedVersion = expectedVersion,
+                installedVersion = installedVersion
+            )
             
             if (score > bestScore) {
                 bestScore = score
@@ -706,7 +735,8 @@ class AppInstaller private constructor(private val context: Context) {
         // Pkg Tokens: [org, fossify, calculator]
         // Match: fossify(1), org(1), calculator(1). Full match.
         
-        if (bestScore > 0.65) { 
+        // Threshold: increased to 0.75 for better precision
+        if (bestScore > 0.75) { 
             return bestMatch
         }
         return null
@@ -715,46 +745,98 @@ class AppInstaller private constructor(private val context: Context) {
     /**
      * Calculate match score between package name and query tokens.
      */
-    private fun calculateScore(packageName: String, repoTokens: Set<String>, ownerTokens: Set<String>): Double {
+    private fun calculateScore(
+        packageName: String, 
+        label: String,
+        repoTokens: Set<String>, 
+        ownerTokens: Set<String>,
+        rawRepoName: String,
+        rawOwnerName: String,
+        expectedVersion: String?,
+        installedVersion: String?
+    ): Double {
         // Tokenize package name (split by dots, underscores)
         val pkgTokens = tokenize(packageName)
+        val labelTokens = tokenize(label)
         
         // 1. Repo Name Match (Critical)
-        // At least one repo token MUST match significantly
         val repoMatches = repoTokens.count { rToken -> 
-            pkgTokens.any { pToken -> isTokenMatch(rToken, pToken) }
+            pkgTokens.any { pToken -> isTokenMatch(rToken, pToken) } ||
+            labelTokens.any { lToken -> isTokenMatch(rToken, lToken) }
         }
         
-        if (repoMatches == 0) return 0.0 // Repo name part missing? Likely irrelevant app.
+        if (repoMatches == 0) return 0.0
 
         // 2. Owner Name Match (Confirmation)
         val ownerMatches = ownerTokens.count { oToken -> 
-            pkgTokens.any { pToken -> isTokenMatch(oToken, pToken) }
+            pkgTokens.any { pToken -> isTokenMatch(oToken, pToken) } ||
+            labelTokens.any { lToken -> isTokenMatch(oToken, lToken) }
         }
 
-        // 3. Calculation
-        // Repo match contributes 60%, Owner match contributes 40%
+        // 3. Label exact/substring match boost
+        var labelBoost = 0.0
+        val cleanLabel = label.lowercase().replace(" ", "")
+        val cleanRepo = rawRepoName.lowercase().replace(" ", "")
+        if (cleanLabel == cleanRepo) {
+            labelBoost = 0.4
+        } else if (cleanLabel.contains(cleanRepo) || cleanRepo.contains(cleanLabel)) {
+            labelBoost = 0.2
+        }
+
+        // 4. Concatenated Owner+Repo match (Common naming pattern)
+        var concatBoost = 0.0
+        val concat1 = (rawOwnerName + rawRepoName).lowercase()
+        val concat2 = (rawRepoName + rawOwnerName).lowercase()
+        val cleanPkg = packageName.lowercase().replace(".", "")
+        if (cleanPkg.contains(concat1) || cleanPkg.contains(concat2)) {
+            concatBoost = 0.3
+        }
+
+        // 5. Version Verification (High confidence signal)
+        var versionBoost = 0.0
+        if (expectedVersion != null && installedVersion != null) {
+            val v1 = expectedVersion.lowercase().replace(Regex("[^0-9.]"), "")
+            val v2 = installedVersion.lowercase().replace(Regex("[^0-9.]"), "")
+            if (v1.isNotEmpty() && v2.isNotEmpty() && (v1 == v2 || v1.contains(v2) || v2.contains(v1))) {
+                versionBoost = 0.5
+            }
+        }
+
+        // 6. Penalty for generic-only matches
+        var genericMatchPenalty = 0.0
+        val significantMatches = repoTokens.count { rToken ->
+            !GENERIC_TOKENS.contains(rToken) && (
+                pkgTokens.any { pToken -> isTokenMatch(rToken, pToken) } ||
+                labelTokens.any { lToken -> isTokenMatch(rToken, lToken) }
+            )
+        }
+        if (significantMatches == 0 && repoMatches > 0) {
+            // Match is entirely based on generic tokens like "maps"
+            genericMatchPenalty = 0.4
+        }
+
+        // 7. Calculation
+        // Repo match: 0.5, Owner match: 0.2, Label boost: 0.3, Concat boost: 0.2, Version boost: 0.5
         val repoScore = repoMatches.toDouble() / repoTokens.size.coerceAtLeast(1)
         val ownerScore = ownerMatches.toDouble() / ownerTokens.size.coerceAtLeast(1)
         
-        // If owner is missing completely, we penalize correctly
-        // But some owners don't put their name in package (e.g. "RetroMusicPlayer" -> "code.name.retro")
-        // So we can't require owner match 100%, but it boosts confidence.
-        
-        // However, to distinguish "Google Calculator" from "Fossify Calculator":
-        // "Calculator" matches both.
-        // "Fossify" matches "org.fossify" but NOT "com.google".
-        // So owner score is the discriminator.
-        
-        return (repoScore * 0.6) + (ownerScore * 0.4)
+        val finalScore = (repoScore * 0.5) + (ownerScore * 0.2) + labelBoost + concatBoost + versionBoost - genericMatchPenalty
+        return finalScore.coerceAtLeast(0.0)
     }
 
     private fun isTokenMatch(token1: String, token2: String): Boolean {
         // Exact match
         if (token1 == token2) return true
+        
+        // Don't do fuzzy/substring matching for generic tokens (maps, pro, etc)
+        if (GENERIC_TOKENS.contains(token1) || GENERIC_TOKENS.contains(token2)) return false
+
         // Substring check for concatenated tokens (e.g. "simplemobiletools" vs "simple")
-        if (token1.length > 3 && token2.contains(token1)) return true
-        if (token2.length > 3 && token1.contains(token2)) return true
+        // Require at least 4 chars and one must be a significant portion of other
+        if (token1.length >= 4 && token2.length >= 4) {
+            if (token2.contains(token1) && token1.length >= token2.length * 0.6) return true
+            if (token1.contains(token2) && token2.length >= token1.length * 0.6) return true
+        }
         return false
     }
 

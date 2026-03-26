@@ -11,6 +11,7 @@ import android.view.View
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -523,7 +524,7 @@ class DetailActivity : AppCompatActivity() {
         setupButtonJob = lifecycleScope.launch {
             // Run heavy findPackage (DB query + PackageManager scan) off the main thread
             val detectedPackage = withContext(Dispatchers.IO) {
-                appInstaller.findPackage(repoName, ownerName)
+                appInstaller.findPackage(repoName, ownerName, currentReleaseTag)
             }
             
             if (!isActive) return@launch
@@ -572,7 +573,6 @@ class DetailActivity : AppCompatActivity() {
                         }
                     }
                 } else {
-                    // Already up to date - show Open button
                     binding.btnDownload.text = getString(R.string.open)
                     binding.btnDownload.setOnClickListener {
                         if (!appInstaller.launch(installedPackageName!!)) {
@@ -580,14 +580,10 @@ class DetailActivity : AppCompatActivity() {
                         }
                     }
                     
-                    // Allow switching variants via long-press if multiple options exist
-                    if (allApkAssets.size > 1) {
-                        binding.btnDownload.setOnLongClickListener {
-                            showReleaseVariantPicker()
-                            true
-                        }
-                    } else {
-                        binding.btnDownload.setOnLongClickListener(null)
+                    // Allow overriding mismatch or switching variants via long-press
+                    binding.btnDownload.setOnLongClickListener {
+                        showMismatchActionDialog(installedPackageName!!)
+                        true
                     }
                 }
             } else {
@@ -614,6 +610,43 @@ class DetailActivity : AppCompatActivity() {
                 }
             }
         }
+    }
+
+    private fun showMismatchActionDialog(packageName: String) {
+        val appLabel = try {
+            val pm = packageManager
+            val info = pm.getApplicationInfo(packageName, 0)
+            pm.getApplicationLabel(info).toString()
+        } catch (e: Exception) {
+            packageName
+        }
+
+        AlertDialog.Builder(this)
+            .setTitle(R.string.app_mismatch_title)
+            .setMessage(getString(R.string.app_mismatch_message, appLabel, packageName))
+            .setPositiveButton(R.string.open) { _, _ ->
+                if (!appInstaller.launch(packageName)) {
+                    Toast.makeText(this, R.string.cannot_open_app, Toast.LENGTH_SHORT).show()
+                }
+            }
+            .setNegativeButton(R.string.install_anyway) { _, _ ->
+                if (allApkAssets.size > 1) {
+                    showReleaseVariantPicker()
+                } else {
+                    currentApkAsset?.let { startDownload(it) } ?: run {
+                        openUrl(currentRepo?.htmlUrl ?: "")
+                    }
+                }
+            }
+            .setNeutralButton(R.string.forget_mapping) { _, _ ->
+                appInstaller.clearMapping(repoName, owner)
+                // Briefly wait for DB update then re-check
+                lifecycleScope.launch {
+                    kotlinx.coroutines.delay(300)
+                    checkInstalledState()
+                }
+            }
+            .show()
     }
 
     private fun showReleaseVariantPicker() {
