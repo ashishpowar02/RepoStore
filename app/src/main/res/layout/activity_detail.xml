@@ -294,9 +294,7 @@
                     <Space
                         android:id="@+id/divider_download"
                         android:layout_width="2dp"
-                        android:layout_height="match_parent"
-                        android:visibility="gone"
-                        tools:visibility="visible" />
+                        android:layout_height="match_parent" />
 
                     <!-- Dropdown Arrow Card -->
                     <com.google.android.material.card.MaterialCardView
@@ -308,9 +306,7 @@
                         app:shapeAppearanceOverlay="@style/ShapeAppearance.App.RightSplitButton"
                         app:cardBackgroundColor="?attr/colorPrimary"
                         android:clickable="true"
-                        android:focusable="true"
-                        android:visibility="gone"
-                        tools:visibility="visible">
+                        android:focusable="true">
 
                         <ImageView
                             android:layout_width="48dp"

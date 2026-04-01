@@ -54,6 +54,14 @@ interface GitHubApi {
         @Query("ref") ref: String? = null
     ): List<GitHubContent>
 
+    @GET("repos/{owner}/{repo}/contents/{path}")
+    suspend fun getFileContent(
+        @Path("owner") owner: String,
+        @Path("repo") repo: String,
+        @Path("path") path: String,
+        @Query("ref") ref: String? = null
+    ): GitHubContent
+
     @GET("repos/{owner}/{repo}/contents")
     suspend fun getRootContents(
         @Path("owner") owner: String,
@@ -68,6 +76,13 @@ interface GitHubApi {
         @Query("per_page") perPage: Int = 30,
         @Query("page") page: Int = 1
     ): List<GitHubRepo>
+
+    @GET("repos/{owner}/{repo}/contributors")
+    suspend fun getContributors(
+        @Path("owner") owner: String,
+        @Path("repo") repo: String,
+        @Query("per_page") perPage: Int = 100
+    ): List<GitHubUser>
 
     @GET("users/{username}")
     suspend fun getUser(

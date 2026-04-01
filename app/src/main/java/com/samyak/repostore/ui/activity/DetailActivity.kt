@@ -442,7 +442,10 @@ class DetailActivity : AppCompatActivity() {
                 btnDownloadMain.setOnClickListener {
                     openUrl(repo.htmlUrl)
                 }
-                updateSplitButtonShape(false)
+                updateSplitButtonShape(true)
+                btnDownloadDropdown.setOnClickListener {
+                    showReleaseVariantPicker()
+                }
             }
 
             // GitHub button
