@@ -332,17 +332,82 @@ class GitHubRepository(private val repoDao: RepoDao) {
     suspend fun getAppsByCategory(category: AppCategory, page: Int = 1): Result<List<AppItem>> {
         return withContext(Dispatchers.IO) {
             try {
-                val query = "${category.query} stars:>50"
-                val response = api.searchRepositories(query, perPage = 30, page = page)
+                val allRepos = mutableListOf<GitHubRepo>()
+                val seenIds = mutableSetOf<Long>()
 
-                // Filter to only repos with APK releases
-                val appItems = filterReposWithApk(response.items)
+                if (category == AppCategory.TRENDING) {
+                    // For trending: use time-based filter for recently active popular Android apps
+                    val thirtyDaysAgo = java.time.LocalDate.now().minusDays(30)
+                    val dateFilter = "pushed:>${thirtyDaysAgo}"
+                    
+                    // Multiple queries to catch diverse trending Android apps
+                    val queries = listOf(
+                        "topic:android $dateFilter stars:>500",
+                        "topic:android-app $dateFilter stars:>100",
+                        "android app $dateFilter stars:>200 language:Kotlin",
+                        "android app $dateFilter stars:>200 language:Java"
+                    )
+                    
+                    for (query in queries) {
+                        try {
+                            val response = api.searchRepositories(
+                                query = query, 
+                                sort = "stars", 
+                                perPage = 30, 
+                                page = page
+                            )
+                            for (repo in response.items) {
+                                if (seenIds.add(repo.id)) {
+                                    allRepos.add(repo)
+                                }
+                            }
+                        } catch (e: Exception) {
+                            // Continue with next query if one fails
+                        }
+                    }
 
-                if (appItems.isNotEmpty()) {
-                    repoDao.insertRepos(response.items)
+                    if (allRepos.isEmpty()) {
+                        return@withContext Result.success(emptyList())
+                    }
+
+                    // Filter to only repos with APK releases
+                    val appItems = filterReposWithApk(allRepos)
+
+                    if (appItems.isNotEmpty()) {
+                        repoDao.insertRepos(allRepos)
+                    }
+
+                    Result.success(appItems)
+                } else {
+                    // For other categories: try each query and merge results
+                    for (query in category.queries) {
+                        try {
+                            val searchQuery = "$query stars:>50"
+                            val response = api.searchRepositories(searchQuery, perPage = 30, page = page)
+                            for (repo in response.items) {
+                                if (seenIds.add(repo.id)) {
+                                    allRepos.add(repo)
+                                }
+                            }
+                        } catch (e: Exception) {
+                            // Continue with next query if one fails
+                        }
+                        if (allRepos.size >= 30) break
+                    }
+
+                    if (allRepos.isEmpty()) {
+                        return@withContext Result.success(emptyList())
+                    }
+
+                    // Filter to only repos with APK releases
+                    val appItems = filterReposWithApk(allRepos)
+
+                    if (appItems.isNotEmpty()) {
+                        repoDao.insertRepos(allRepos)
+                    }
+                    
+                    Result.success(appItems)
                 }
-                
-                Result.success(appItems)
             } catch (e: HttpException) {
                 handleHttpException(e)
             } catch (e: Exception) {

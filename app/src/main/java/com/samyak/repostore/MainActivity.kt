@@ -10,6 +10,7 @@ import com.samyak.repostore.ui.fragment.GameFragment
 import com.samyak.repostore.ui.fragment.HomeFragment
 import com.samyak.repostore.ui.fragment.SearchFragment
 import com.samyak.repostore.ui.fragment.SettingsFragment
+import com.samyak.repostore.ui.fragment.TrendingFragment
 
 class MainActivity : AppCompatActivity() {
 
@@ -44,6 +45,10 @@ class MainActivity : AppCompatActivity() {
                 }
                 R.id.nav_apps -> {
                     loadFragment(HomeFragment.newInstance())
+                    true
+                }
+                R.id.nav_trending -> {
+                    loadFragment(TrendingFragment.newInstance())
                     true
                 }
                 R.id.nav_search -> {

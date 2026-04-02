@@ -162,7 +162,8 @@ enum class AppCategory(val displayName: String, val queries: List<String>, val i
     WORKOUT("Workout", listOf("android workout", "android exercise fitness", "topic:workout topic:android"), R.drawable.ic_cat_productivity, R.color.cat_bg_pink),
     WRITING("Writing", listOf("android writing", "android markdown editor", "topic:writing topic:android"), R.drawable.ic_code, R.color.cat_bg_teal),
     PRODUCTIVITY("Productivity", listOf("android productivity", "android notes", "android todo", "topic:android-productivity"), R.drawable.ic_cat_productivity, R.color.cat_bg_indigo),
-    OPEN_SOURCE("Open Source", listOf("android foss", "android open-source", "topic:foss topic:android"), R.drawable.ic_cat_foss, R.color.cat_bg_brown);
+    OPEN_SOURCE("Open Source", listOf("android foss", "android open-source", "topic:foss topic:android"), R.drawable.ic_cat_foss, R.color.cat_bg_brown),
+    TRENDING("Trending", listOf("android app", "topic:android", "android apk"), R.drawable.ic_star, R.color.cat_bg_orange);
 
     // For backward compatibility
     val query: String get() = queries.first()
