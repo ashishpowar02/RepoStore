@@ -111,7 +111,7 @@
             android:src="@drawable/ic_check_circle"
             app:tint="@color/primary"
             android:visibility="gone"
-            android:contentDescription="Selected"
+            android:contentDescription="@string/selected_content_desc"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintTop_toTopOf="parent"

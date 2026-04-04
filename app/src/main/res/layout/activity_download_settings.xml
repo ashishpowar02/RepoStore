@@ -112,21 +112,21 @@
                         android:id="@+id/chip_ghproxy"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="gh-proxy.com"
+                        android:text="@string/chip_ghproxy"
                         style="@style/Widget.Material3.Chip.Suggestion" />
 
                     <com.google.android.material.chip.Chip
                         android:id="@+id/chip_ghproxy_net"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="ghproxy.net"
+                        android:text="@string/chip_ghproxy_net"
                         style="@style/Widget.Material3.Chip.Suggestion" />
 
                     <com.google.android.material.chip.Chip
                         android:id="@+id/chip_mirror_ghproxy"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="mirror.ghproxy.com"
+                        android:text="@string/chip_mirror_ghproxy"
                         style="@style/Widget.Material3.Chip.Suggestion" />
 
                 </com.google.android.material.chip.ChipGroup>
@@ -215,7 +215,7 @@
                             android:id="@+id/tv_thread_count"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="4"
+                            android:text="@string/default_thread_count"
                             android:textAppearance="@style/TextAppearance.Material3.TitleMedium"
                             android:textColor="?attr/colorPrimary" />
 

@@ -178,6 +178,8 @@
     <string name="payment_app_icon">Payment app icon</string>
     <string name="pay">Pay</string>
     <string name="cannot_open_payment_app">Cannot open payment app</string>
+    <string name="buy_me_a_coffee">Buy Me A Coffee</string>
+    <string name="support_buy_me_a_coffee">Support on Buy Me A Coffee</string>
     
     <!-- Open Source Licenses -->
     <string name="open_source_licenses">Open Source Licenses</string>
@@ -232,4 +234,11 @@
     <string name="app_mismatch_message">RepoStore matched this repository to an installed app: %1$s (%2$s).\n\nIf this is NOT the same app, you can choose to install the APK from this repository anyway.</string>
     <string name="install_anyway">Install Anyway</string>
     <string name="forget_mapping">Forget Mapping</string>
+    <string name="contributors">Contributors</string>
+    <string name="no_apk_variants_available">No APK variants available</string>
+    <string name="chip_ghproxy" translatable="false">gh-proxy.com</string>
+    <string name="chip_ghproxy_net" translatable="false">ghproxy.net</string>
+    <string name="chip_mirror_ghproxy" translatable="false">mirror.ghproxy.com</string>
+    <string name="default_thread_count" translatable="false">4</string>
+    <string name="selected_content_desc">Selected</string>
 </resources>
