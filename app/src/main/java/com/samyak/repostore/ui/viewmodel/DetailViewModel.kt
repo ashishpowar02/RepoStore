@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import com.samyak.repostore.util.AppNameFetcher
 
 class DetailViewModel(private val repository: GitHubRepository) : ViewModel() {
 
@@ -21,6 +22,9 @@ class DetailViewModel(private val repository: GitHubRepository) : ViewModel() {
 
     private val _screenshots = MutableStateFlow<List<String>>(emptyList())
     val screenshots: StateFlow<List<String>> = _screenshots.asStateFlow()
+
+    private val _realAppName = MutableStateFlow<String?>(null)
+    val realAppName: StateFlow<String?> = _realAppName.asStateFlow()
 
     fun loadAppDetails(owner: String, repoName: String) {
         viewModelScope.launch {
@@ -41,6 +45,9 @@ class DetailViewModel(private val repository: GitHubRepository) : ViewModel() {
 
                     // Load readme in background
                     loadReadme(owner, repoName)
+                    
+                    // Fetch real internal app name in background
+                    fetchRealAppName(repo)
                 },
                 onFailure = { error ->
                     _uiState.value = DetailUiState.Error(error.message ?: "Failed to load app details")
@@ -72,6 +79,15 @@ class DetailViewModel(private val repository: GitHubRepository) : ViewModel() {
             val result = repository.getReadme(owner, repoName)
             result.onSuccess { content ->
                 _readme.value = content
+            }
+        }
+    }
+
+    private fun fetchRealAppName(repo: GitHubRepo) {
+        viewModelScope.launch {
+            val realName = AppNameFetcher.fetchRealName(repo)
+            if (realName != null) {
+                _realAppName.value = realName
             }
         }
     }

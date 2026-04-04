@@ -75,7 +75,8 @@ data class GitHubContent(
 data class AppItem(
     val repo: GitHubRepo,
     val latestRelease: GitHubRelease?,
-    val tag: AppTag?
+    val tag: AppTag?,
+    val iconUrls: List<String> = emptyList()
 )
 
 enum class AppTag {
@@ -145,7 +146,7 @@ enum class AppCategory(val displayName: String, val queries: List<String>, val i
     SHOPPING_LIST("Shopping List", listOf("android shopping list", "android grocery list", "topic:shopping-list topic:android"), R.drawable.ic_cat_shopping, R.color.cat_bg_pink),
     SOCIAL_NETWORK("Social Network", listOf("android social network", "android mastodon client", "topic:social-network topic:android"), R.drawable.ic_cat_message, R.color.cat_bg_orange),
     SPORTS_HEALTH("Sports & Health", listOf("android health fitness", "android sports tracker", "topic:health topic:android"), R.drawable.ic_cat_productivity, R.color.cat_bg_pink),
-    STREAMING_APP("Streaming App", listOf("streaming topic:android", "streaming-app topic:android"), R.drawable.ic_cat_video, R.color.cat_bg_purple),
+    STREAMING_APP("Streaming App", listOf("repo:libre-tube/libretube", "streaming topic:android", "streaming-app topic:android"), R.drawable.ic_cat_video, R.color.cat_bg_purple),
     SYSTEM("System", listOf("android system tool", "android root tool", "topic:system topic:android"), R.drawable.ic_settings, R.color.cat_bg_green),
     TASK("Task", listOf("android task manager", "android todo list", "topic:todo topic:android"), R.drawable.ic_cat_todo, R.color.cat_bg_indigo),
     TEXT_EDITOR("Text Editor", listOf("android text editor", "android code editor text", "topic:text-editor topic:android"), R.drawable.ic_code, R.color.cat_bg_teal),
@@ -155,7 +156,7 @@ enum class AppCategory(val displayName: String, val queries: List<String>, val i
     TRANSLATION_DICTIONARY("Translation & Dictionary", listOf("android translation", "android dictionary", "topic:translation topic:android"), R.drawable.ic_cat_translation, R.color.cat_bg_cyan),
     UNIT_CONVERTOR("Unit Convertor", listOf("android unit converter", "android converter", "topic:unit-converter topic:android"), R.drawable.ic_cat_convert, R.color.cat_bg_indigo),
     VOICE_VIDEO_CHAT("Voice & Video Chat", listOf("android voice chat", "android video call", "topic:voip topic:android"), R.drawable.ic_cat_video_call, R.color.cat_bg_orange),
-    VPN("VPN & Proxy", listOf("vpn topic:android", "android vpn", "topic:vpn topic:android"), R.drawable.ic_cat_vpn, R.color.cat_bg_blue),
+    VPN("VPN & Proxy", listOf("vpn topic:android", "android vpn", "proxy topic:android", "android proxy", "v2ray topic:android", "shadowsocks topic:android", "wireguard topic:android", "topic:vpn topic:android", "repo:ProtonVPN/android-app"), R.drawable.ic_cat_vpn, R.color.cat_bg_blue),
     WALLET("Wallet", listOf("android wallet", "android crypto wallet", "topic:wallet topic:android"), R.drawable.ic_cat_finance, R.color.cat_bg_green),
     WALLPAPER("Wallpaper", listOf("android wallpaper", "android live wallpaper", "topic:wallpaper topic:android"), R.drawable.ic_cat_image, R.color.cat_bg_yellow),
     WEATHER("Weather", listOf("android weather", "android weather app", "topic:weather topic:android"), R.drawable.ic_cat_weather, R.color.cat_bg_pink),
@@ -163,7 +164,7 @@ enum class AppCategory(val displayName: String, val queries: List<String>, val i
     WRITING("Writing", listOf("android writing", "android markdown editor", "topic:writing topic:android"), R.drawable.ic_code, R.color.cat_bg_teal),
     PRODUCTIVITY("Productivity", listOf("android productivity", "android notes", "android todo", "topic:android-productivity"), R.drawable.ic_cat_productivity, R.color.cat_bg_indigo),
     OPEN_SOURCE("Open Source", listOf("android foss", "android open-source", "topic:foss topic:android"), R.drawable.ic_cat_foss, R.color.cat_bg_brown),
-    TRENDING("Trending", listOf("android app", "topic:android", "android apk"), R.drawable.ic_star, R.color.cat_bg_orange);
+    TRENDING("Trending", listOf("repo:libre-tube/libretube", "android app", "topic:android", "android apk"), R.drawable.ic_star, R.color.cat_bg_orange);
 
     // For backward compatibility
     val query: String get() = queries.first()

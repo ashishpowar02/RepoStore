@@ -11,6 +11,8 @@ import com.samyak.repostore.R
 import com.samyak.repostore.data.model.AppItem
 import com.samyak.repostore.data.model.AppTag
 import com.samyak.repostore.databinding.ItemAppListRowBinding
+import com.samyak.repostore.util.loadIconWithFallback
+import com.samyak.repostore.util.loadRealAppName
 import java.util.Locale
 
 class RankedAppAdapter(
@@ -48,7 +50,7 @@ class RankedAppAdapter(
 
             binding.apply {
                 tvRank.text = rank.toString()
-                tvAppName.text = repo.name
+                tvAppName.loadRealAppName(repo)
                 tvDeveloper.text = repo.owner.login
 
                 // Show actual GitHub stars count
@@ -70,10 +72,8 @@ class RankedAppAdapter(
                     else -> chipTag.visibility = View.GONE
                 }
 
-                Glide.with(ivAppIcon)
-                    .load(repo.owner.avatarUrl)
-                    .placeholder(R.drawable.ic_app_placeholder)
-                    .into(ivAppIcon)
+                // Load high-resolution icon with fallbacks
+                ivAppIcon.loadIconWithFallback(item.iconUrls, repo.owner.avatarUrl)
             }
         }
 

@@ -4,6 +4,7 @@ import com.samyak.repostore.data.api.RetrofitClient
 import com.samyak.repostore.data.db.RepoDao
 import com.samyak.repostore.data.model.*
 import com.samyak.repostore.util.GitHubUrlParser
+import com.samyak.gitcore.util.IconResolver
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -85,7 +86,7 @@ class GitHubRepository(private val repoDao: RepoDao) {
                     if (hasApk) {
                         val release = releaseCache["${repo.owner.login}/${repo.name}"]
                         val tag = determineTag(repo, release)
-                        AppItem(repo, release, tag)
+                        AppItem(repo, release, tag, IconResolver.resolve(repo.owner.login, repo.name, repo.defaultBranch, repo.language))
                     } else {
                         null
                     }
@@ -171,7 +172,7 @@ class GitHubRepository(private val repoDao: RepoDao) {
                 if (filtered.isEmpty() && response.items.isNotEmpty()) {
                     response.items.map { repo ->
                         val tag = determineTag(repo, null)
-                        AppItem(repo, null, tag)
+                        AppItem(repo, null, tag, IconResolver.resolve(repo.owner.login, repo.name, repo.defaultBranch, repo.language))
                     }
                 } else {
                     filtered
@@ -179,7 +180,7 @@ class GitHubRepository(private val repoDao: RepoDao) {
             } else {
                 response.items.map { repo ->
                     val tag = determineTag(repo, null)
-                    AppItem(repo, null, tag)
+                    AppItem(repo, null, tag, IconResolver.resolve(repo.owner.login, repo.name, repo.defaultBranch, repo.language))
                 }
             }
             
@@ -215,7 +216,7 @@ class GitHubRepository(private val repoDao: RepoDao) {
             val release = releaseResult.getOrNull()
             
             val tag = determineTag(repo, release)
-            Result.success(AppItem(repo, release, tag))
+            Result.success(AppItem(repo, release, tag, IconResolver.resolve(repo.owner.login, repo.name, repo.defaultBranch, repo.language)))
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -342,6 +343,7 @@ class GitHubRepository(private val repoDao: RepoDao) {
                     
                     // Multiple queries to catch diverse trending Android apps
                     val queries = listOf(
+                        "repo:libre-tube/libretube",
                         "topic:android $dateFilter stars:>500",
                         "topic:android-app $dateFilter stars:>100",
                         "android app $dateFilter stars:>200 language:Kotlin",
@@ -377,7 +379,7 @@ class GitHubRepository(private val repoDao: RepoDao) {
                         repoDao.insertRepos(allRepos)
                     }
 
-                    Result.success(appItems)
+                    Result.success(appItems.sortedByDescending { it.repo.stars })
                 } else {
                     // For other categories: try each query and merge results
                     for (query in category.queries) {
@@ -406,7 +408,7 @@ class GitHubRepository(private val repoDao: RepoDao) {
                         repoDao.insertRepos(allRepos)
                     }
                     
-                    Result.success(appItems)
+                    Result.success(appItems.sortedByDescending { it.repo.stars })
                 }
             } catch (e: HttpException) {
                 handleHttpException(e)
@@ -508,7 +510,7 @@ class GitHubRepository(private val repoDao: RepoDao) {
 
             val appItems = repos.map { repo ->
                 val tag = determineTag(repo, null)
-                AppItem(repo, null, tag)
+                AppItem(repo, null, tag, IconResolver.resolve(repo.owner.login, repo.name, repo.defaultBranch, repo.language))
             }
 
             // Cache the result

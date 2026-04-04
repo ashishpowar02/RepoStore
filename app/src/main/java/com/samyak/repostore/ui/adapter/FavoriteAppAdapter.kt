@@ -10,6 +10,7 @@ import com.bumptech.glide.Glide
 import com.samyak.repostore.R
 import com.samyak.repostore.data.model.FavoriteApp
 import com.samyak.repostore.databinding.ItemAppListRowBinding
+import com.samyak.repostore.util.loadRealAppName
 import java.util.Locale
 
 class FavoriteAppAdapter(
@@ -45,7 +46,7 @@ class FavoriteAppAdapter(
         fun bind(item: FavoriteApp, rank: Int) {
             binding.apply {
                 tvRank.text = rank.toString()
-                tvAppName.text = item.name
+                tvAppName.loadRealAppName(item.fullName, item.ownerLogin, item.name, item.language, item.id)
                 tvDeveloper.text = item.ownerLogin
 
                 // Show stars count

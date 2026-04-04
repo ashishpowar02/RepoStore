@@ -11,6 +11,8 @@ import com.samyak.repostore.R
 import com.samyak.repostore.data.model.AppItem
 import com.samyak.repostore.data.model.AppTag
 import com.samyak.repostore.databinding.ItemAppCardBinding
+import com.samyak.repostore.util.loadIconWithFallback
+import com.samyak.repostore.util.loadRealAppName
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -48,7 +50,7 @@ class AppListAdapter(
             val repo = item.repo
             
             binding.apply {
-                tvAppName.text = repo.name
+                tvAppName.loadRealAppName(repo)
                 tvDeveloper.text = repo.owner.login
                 tvDescription.text = repo.description ?: "No description available"
                 tvStars.text = formatNumber(repo.stars)
@@ -82,12 +84,8 @@ class AppListAdapter(
                     null -> chipTag.visibility = View.GONE
                 }
                 
-                // Load avatar
-                Glide.with(ivAppIcon)
-                    .load(repo.owner.avatarUrl)
-                    .placeholder(R.drawable.ic_app_placeholder)
-                    .circleCrop()
-                    .into(ivAppIcon)
+                // Load high-resolution icon with fallbacks
+                ivAppIcon.loadIconWithFallback(item.iconUrls, repo.owner.avatarUrl, circleCrop = true)
             }
         }
         

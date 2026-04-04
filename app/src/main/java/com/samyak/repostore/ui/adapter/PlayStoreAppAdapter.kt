@@ -9,6 +9,8 @@ import com.bumptech.glide.Glide
 import com.samyak.repostore.R
 import com.samyak.repostore.data.model.AppItem
 import com.samyak.repostore.databinding.ItemAppPlaystoreBinding
+import com.samyak.repostore.util.loadIconWithFallback
+import com.samyak.repostore.util.loadRealAppName
 import java.util.Locale
 
 class PlayStoreAppAdapter(
@@ -45,14 +47,12 @@ class PlayStoreAppAdapter(
             val repo = item.repo
 
             binding.apply {
-                tvAppName.text = repo.name
+                tvAppName.loadRealAppName(repo)
                 // Show actual GitHub stars count
                 tvRating.text = formatNumber(repo.stars)
 
-                Glide.with(ivAppIcon)
-                    .load(repo.owner.avatarUrl)
-                    .placeholder(R.drawable.ic_app_placeholder)
-                    .into(ivAppIcon)
+                // Load high-resolution icon with fallbacks
+                ivAppIcon.loadIconWithFallback(item.iconUrls, repo.owner.avatarUrl)
             }
         }
 

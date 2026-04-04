@@ -70,23 +70,29 @@ class AppListViewModel(
                 AppListUiState.LoadingMore(loadedApps.toList())
             }
 
-            val query = getQuery()
-            // searchApps now filters for APK releases automatically
-            val result = repository.searchApps(query, currentPage)
+            val result = if (category != null && ListType.valueOf(listType) == ListType.CATEGORY) {
+                repository.getAppsByCategory(category, currentPage)
+            } else {
+                val query = getQuery()
+                // searchApps now filters for APK releases automatically
+                repository.searchApps(query, currentPage)
+            }
 
             result.fold(
                 onSuccess = { apps ->
-                    val sortedApps = when (ListType.valueOf(listType)) {
-                        ListType.FEATURED -> apps.sortedByDescending { it.repo.stars }
-                        ListType.TRENDING -> apps.sortedByDescending { it.repo.stars }
-                        ListType.UPDATED -> apps.sortedByDescending { it.repo.updatedAt }
-                        ListType.CATEGORY -> apps.sortedByDescending { it.repo.stars }
-                    }
-
                     if (refresh || currentPage == 1) {
                         loadedApps.clear()
                     }
-                    loadedApps.addAll(sortedApps)
+                    val existingIds = loadedApps.map { it.repo.id }.toSet()
+                    val newApps = apps.filter { it.repo.id !in existingIds }
+                    loadedApps.addAll(newApps)
+
+                    when (ListType.valueOf(listType)) {
+                        ListType.FEATURED -> loadedApps.sortByDescending { it.repo.stars }
+                        ListType.TRENDING -> loadedApps.sortByDescending { it.repo.stars }
+                        ListType.UPDATED -> loadedApps.sortByDescending { it.repo.updatedAt }
+                        ListType.CATEGORY -> loadedApps.sortByDescending { it.repo.stars }
+                    }
 
                     _uiState.value = if (loadedApps.isEmpty()) {
                         AppListUiState.Empty
@@ -117,18 +123,26 @@ class AppListViewModel(
         viewModelScope.launch {
             _uiState.value = AppListUiState.LoadingMore(loadedApps.toList())
 
-            val query = getQuery()
-            val result = repository.searchApps(query, currentPage)
+            val result = if (category != null && ListType.valueOf(listType) == ListType.CATEGORY) {
+                repository.getAppsByCategory(category, currentPage)
+            } else {
+                val query = getQuery()
+                repository.searchApps(query, currentPage)
+            }
 
             result.fold(
                 onSuccess = { apps ->
-                    val sortedApps = when (ListType.valueOf(listType)) {
-                        ListType.FEATURED -> apps.sortedByDescending { it.repo.stars }
-                        ListType.TRENDING -> apps.sortedByDescending { it.repo.stars }
-                        ListType.UPDATED -> apps.sortedByDescending { it.repo.updatedAt }
-                        ListType.CATEGORY -> apps.sortedByDescending { it.repo.stars }
+                    val existingIds = loadedApps.map { it.repo.id }.toSet()
+                    val newApps = apps.filter { it.repo.id !in existingIds }
+                    loadedApps.addAll(newApps)
+
+                    when (ListType.valueOf(listType)) {
+                        ListType.FEATURED -> loadedApps.sortByDescending { it.repo.stars }
+                        ListType.TRENDING -> loadedApps.sortByDescending { it.repo.stars }
+                        ListType.UPDATED -> loadedApps.sortByDescending { it.repo.updatedAt }
+                        ListType.CATEGORY -> loadedApps.sortByDescending { it.repo.stars }
                     }
-                    loadedApps.addAll(sortedApps)
+
                     _uiState.value = AppListUiState.Success(loadedApps.toList())
                 },
                 onFailure = {

@@ -62,3 +62,4 @@ lottie = { group = "com.airbnb.android", name = "lottie", version.ref = "lottie"
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
+android-library = { id = "com.android.library", version.ref = "agp" }

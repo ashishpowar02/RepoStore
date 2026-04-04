@@ -52,6 +52,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.samyak.gitcore.util.IconResolver
+import com.samyak.repostore.util.loadIconWithFallback
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.Locale
@@ -226,6 +228,14 @@ class DetailActivity : AppCompatActivity() {
                         }
                     }
                 }
+
+                launch {
+                    viewModel.realAppName.collect { realName ->
+                        if (!realName.isNullOrBlank()) {
+                            binding.tvAppName.text = realName
+                        }
+                    }
+                }
             }
         }
     }
@@ -339,16 +349,19 @@ class DetailActivity : AppCompatActivity() {
             tvLanguage.text = repo.language ?: "Code"
             tvUpdated.text = formatDate(repo.updatedAt)
 
-            // Load avatar
-            Glide.with(this@DetailActivity)
-                .load(repo.owner.avatarUrl)
-                .placeholder(R.drawable.ic_app_placeholder)
-                .into(ivAppIcon)
+            // Resolve app icons
+            val iconUrls = IconResolver.resolve(repo.owner.login, repo.name, repo.defaultBranch, repo.language)
+
+            // Load high-resolution icon with fallbacks
+            ivAppIcon.loadIconWithFallback(iconUrls, repo.owner.avatarUrl)
 
             // Icon click - open icon viewer
             ivAppIcon.setOnClickListener {
+                // Determine what to pass to the viewer
+                // Note: We'll pass the list to the viewer so it can also resolve the best icon
                 val intent = IconViewerActivity.newIntent(
                     this@DetailActivity,
+                    iconUrls,
                     repo.owner.avatarUrl,
                     repo.name
                 )

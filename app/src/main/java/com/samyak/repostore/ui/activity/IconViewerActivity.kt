@@ -10,6 +10,7 @@ import androidx.core.view.WindowInsetsCompat
 import com.bumptech.glide.Glide
 import com.samyak.repostore.R
 import com.samyak.repostore.databinding.ActivityIconViewerBinding
+import com.samyak.repostore.util.loadIconWithFallback
 
 class IconViewerActivity : AppCompatActivity() {
 
@@ -28,16 +29,17 @@ class IconViewerActivity : AppCompatActivity() {
             insets
         }
 
-        val iconUrl = intent.getStringExtra(EXTRA_ICON_URL) ?: ""
+        val iconUrls = intent.getStringArrayListExtra(EXTRA_ICON_URLS)?.toList() ?: emptyList()
+        val fallbackUrl = intent.getStringExtra(EXTRA_FALLBACK_URL) ?: ""
         val appName = intent.getStringExtra(EXTRA_APP_NAME) ?: ""
 
-        if (iconUrl.isEmpty()) {
+        if (fallbackUrl.isEmpty()) {
             finish()
             return
         }
 
         setupToolbar(appName)
-        loadIcon(iconUrl)
+        loadIcon(iconUrls, fallbackUrl)
     }
 
     private fun setupToolbar(appName: String) {
@@ -47,12 +49,8 @@ class IconViewerActivity : AppCompatActivity() {
         }
     }
 
-    private fun loadIcon(iconUrl: String) {
-        Glide.with(this)
-            .load(iconUrl)
-            .placeholder(R.drawable.ic_app_placeholder)
-            .error(R.drawable.ic_app_placeholder)
-            .into(binding.ivIcon)
+    private fun loadIcon(iconUrls: List<String>, fallbackUrl: String) {
+        binding.ivIcon.loadIconWithFallback(iconUrls, fallbackUrl)
     }
 
     override fun finish() {
@@ -61,12 +59,14 @@ class IconViewerActivity : AppCompatActivity() {
     }
 
     companion object {
-        private const val EXTRA_ICON_URL = "icon_url"
+        private const val EXTRA_ICON_URLS = "icon_urls"
+        private const val EXTRA_FALLBACK_URL = "fallback_url"
         private const val EXTRA_APP_NAME = "app_name"
 
-        fun newIntent(context: Context, iconUrl: String, appName: String): Intent {
+        fun newIntent(context: Context, iconUrls: List<String>, fallbackUrl: String, appName: String): Intent {
             return Intent(context, IconViewerActivity::class.java).apply {
-                putExtra(EXTRA_ICON_URL, iconUrl)
+                putStringArrayListExtra(EXTRA_ICON_URLS, ArrayList(iconUrls))
+                putExtra(EXTRA_FALLBACK_URL, fallbackUrl)
                 putExtra(EXTRA_APP_NAME, appName)
             }
         }

@@ -52,12 +52,11 @@ class TrendingViewModel(private val repository: GitHubRepository) : ViewModel() 
             val result = repository.getAppsByCategory(AppCategory.TRENDING, currentPage)
             result.fold(
                 onSuccess = { apps ->
-                    val sortedApps = apps.sortedByDescending { it.repo.stars }
-                    
                     if (refresh || currentPage == 1) {
                         loadedApps.clear()
                     }
-                    loadedApps.addAll(sortedApps)
+                    loadedApps.addAll(apps)
+                    loadedApps.sortByDescending { it.repo.stars }
 
                     _uiState.value = if (loadedApps.isEmpty()) {
                         TrendingUiState.Empty
@@ -92,10 +91,10 @@ class TrendingViewModel(private val repository: GitHubRepository) : ViewModel() 
 
             result.fold(
                 onSuccess = { apps ->
-                    val sortedApps = apps.sortedByDescending { it.repo.stars }
                     val existingIds = loadedApps.map { it.repo.id }.toSet()
-                    val newApps = sortedApps.filter { it.repo.id !in existingIds }
+                    val newApps = apps.filter { it.repo.id !in existingIds }
                     loadedApps.addAll(newApps)
+                    loadedApps.sortByDescending { it.repo.stars }
                     _uiState.value = TrendingUiState.Success(loadedApps.toList())
                 },
                 onFailure = {

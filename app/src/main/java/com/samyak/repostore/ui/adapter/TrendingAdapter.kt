@@ -17,6 +17,8 @@ import com.samyak.repostore.R
 import com.samyak.repostore.data.model.AppItem
 import com.samyak.repostore.data.model.AppTag
 import com.samyak.repostore.databinding.ItemTrendingAppBinding
+import com.samyak.repostore.util.loadIconWithFallback
+import com.samyak.repostore.util.loadRealAppName
 import java.util.Locale
 
 class TrendingAdapter(
@@ -84,7 +86,7 @@ class TrendingAdapter(
             tryLoadBanner(owner, repoName, branch)
 
             binding.apply {
-                tvAppName.text = repo.name
+                tvAppName.loadRealAppName(repo)
                 tvDeveloper.text = repo.owner.login
                 tvStars.text = formatNumber(repo.stars)
                 tvLanguage.text = repo.language ?: "Code"
@@ -108,10 +110,8 @@ class TrendingAdapter(
                     null -> chipTag.visibility = View.GONE
                 }
 
-                Glide.with(ivAppIcon)
-                    .load(repo.owner.avatarUrl)
-                    .placeholder(R.drawable.ic_app_placeholder)
-                    .into(ivAppIcon)
+                // Load high-resolution icon with fallbacks
+                ivAppIcon.loadIconWithFallback(item.iconUrls, repo.owner.avatarUrl)
             }
         }
 

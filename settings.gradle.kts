@@ -21,3 +21,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "RepoStore"
 include(":app")
+include(":GitCore")
