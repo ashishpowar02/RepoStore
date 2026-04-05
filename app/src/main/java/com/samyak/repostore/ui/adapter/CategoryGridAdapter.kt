@@ -40,7 +40,7 @@ class CategoryGridAdapter(
         }
 
         fun bind(category: AppCategory) {
-            binding.tvCategoryName.text = category.displayName
+            binding.tvCategoryName.text = binding.root.context.getString(category.titleRes)
             binding.ivCategoryIcon.setImageResource(category.iconRes)
             
             val context = binding.root.context

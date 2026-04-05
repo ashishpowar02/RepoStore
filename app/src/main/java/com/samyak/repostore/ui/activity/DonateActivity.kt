@@ -55,6 +55,15 @@ class DonateActivity : AppCompatActivity() {
         binding.btnCopyUpi.setOnClickListener {
             copyToClipboard(UPI_ID)
         }
+
+        binding.cardBuyMeACoffee.setOnClickListener {
+            try {
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://buymeacoffee.com/mr_samyakkamble"))
+                startActivity(intent)
+            } catch (e: Exception) {
+                Toast.makeText(this, R.string.cannot_open_payment_app, Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 
     private fun setupPaymentApps() {

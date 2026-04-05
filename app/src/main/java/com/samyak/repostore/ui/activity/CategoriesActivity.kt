@@ -48,7 +48,7 @@ class CategoriesActivity : AppCompatActivity() {
             val intent = AppListActivity.newIntent(
                 this,
                 ListType.CATEGORY,
-                category.displayName,
+                getString(category.titleRes),
                 category.name
             )
             startActivity(intent)

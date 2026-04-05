@@ -104,13 +104,13 @@ class HomeFragment : Fragment() {
 
         // Add "All" tab first (scrolls to top)
         binding.tabCategories.addTab(
-            binding.tabCategories.newTab().setText(AppCategory.ALL.displayName)
+            binding.tabCategories.newTab().setText(getString(AppCategory.ALL.titleRes))
         )
 
         // Add first 5 category tabs
         visibleCategories.forEach { category ->
             binding.tabCategories.addTab(
-                binding.tabCategories.newTab().setText(category.displayName)
+                binding.tabCategories.newTab().setText(getString(category.titleRes))
             )
         }
 
@@ -228,7 +228,7 @@ class HomeFragment : Fragment() {
             sectionView.layoutParams = params
 
             val sectionBinding = SectionAppListBinding.bind(sectionView)
-            sectionBinding.tvSectionTitle.text = category.displayName
+            sectionBinding.tvSectionTitle.text = getString(category.titleRes)
 
             val adapter = PlayStoreAppAdapter { appItem ->
                 navigateToDetail(appItem)
@@ -250,7 +250,7 @@ class HomeFragment : Fragment() {
                 val intent = AppListActivity.newIntent(
                     requireContext(),
                     ListType.CATEGORY,
-                    category.displayName,
+                    getString(category.titleRes),
                     category.name
                 )
                 startActivity(intent)

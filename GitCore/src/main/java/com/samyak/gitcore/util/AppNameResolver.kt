@@ -54,14 +54,17 @@ object AppNameResolver {
             "src/$name.Android/Resources/values/strings.xml",
             "$name-android/src/main/res/values/strings.xml",
             "$name/src/main/res/values/strings.xml",
+            "$name/app/src/main/res/values/strings.xml",
             "$name-android/src/main/res/values/app_name.xml",
-            "$name/src/main/res/values/app_name.xml"
+            "$name/src/main/res/values/app_name.xml",
+            "$name/app/src/main/res/values/app_name.xml"
         )
         
         val docPaths = listOf(
             "README.md",
             "fastlane/metadata/android/en-US/title.txt",
-            "metadata/en-US/title.txt"
+            "metadata/en-US/title.txt",
+            "metadata/android/en-US/title.txt"
         )
 
         // Prioritize based on language (framework detection)

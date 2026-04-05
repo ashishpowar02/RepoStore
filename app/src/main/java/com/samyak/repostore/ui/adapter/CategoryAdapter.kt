@@ -52,7 +52,7 @@ class CategoryAdapter(
         
         fun bind(category: AppCategory) {
             binding.chipCategory.apply {
-                text = category.displayName
+                text = binding.root.context.getString(category.titleRes)
                 isChecked = category == selectedCategory
             }
         }
